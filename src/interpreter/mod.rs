@@ -469,6 +469,30 @@ where
 
         Some(unsafe { slice::from_raw_parts_mut(inner.data.raw as *mut u8, inner.bytes) })
     }
+
+    pub fn resize_input_tensor(&mut self, tensor_index: TensorIndex, dims: &[TensorIndex]) -> Result<()> {
+        // TfLiteStatus ResizeInputTensor(int tensor_index,
+        //                                const std::vector<int>& dims);
+        let interpreter = self.handle() as *const _;
+
+        let result = unsafe {
+            cpp!([
+                interpreter as "Interpreter*",
+                tensor_index as "int",
+                dims_ptr as "const int*",
+                dims_len as "size_t"
+            ] -> bindings::TfLiteStatus as "TfLiteStatus" {
+                std::vector<int> variables(dims_ptr, dims_ptr + dims_len);
+                return interpreter->ResizeInputTensor(tensor_index, variables);
+            })
+        };
+
+        if result == bindings::TfLiteStatus::kTfLiteOk {
+            Ok(())
+        } else {
+            Err(Error::internal_error("failed to set tensor parameters"))
+        }
+    }
 }
 
 #[cfg(test)]
